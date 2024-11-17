@@ -1,3 +1,3 @@
-module github.com/gitslim/gm-loalty
+module github.com/gitslim/gophermart
 
 go 1.22.6
