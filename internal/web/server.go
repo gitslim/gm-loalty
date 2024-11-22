@@ -6,24 +6,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gitslim/gophermart/internal/conf"
-	"github.com/gitslim/gophermart/internal/log"
-	"github.com/gitslim/gophermart/internal/middleware"
+	"github.com/gitslim/gophermart/internal/logging"
 	"go.uber.org/fx"
 )
 
-// NewRouter создает новый экземпляр Gin Engine
-func NewRouter() *gin.Engine {
-	r := gin.New()
-	r.Use(middleware.GzipMiddleware())
-
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"message": "pong"})
-	})
-	return r
-}
-
-// RegisterServerHooks регистрирует lifecycle hooks для запуска и остановки сервера
-func RegisterServerHooks(lc fx.Lifecycle, cfg *conf.Config, log *log.Logger, router *gin.Engine) {
+// RegisterServerHooks регистрирует хуки для запуска и остановки HTTP сервера
+func RegisterServerHooks(lc fx.Lifecycle, cfg *conf.Config, log logging.Logger, router *gin.Engine) {
 	srv := &http.Server{
 		Addr:    cfg.RunAddrress,
 		Handler: router,

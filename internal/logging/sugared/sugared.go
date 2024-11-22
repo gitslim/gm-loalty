@@ -1,4 +1,4 @@
-package log
+package sugared
 
 import "go.uber.org/zap"
 
