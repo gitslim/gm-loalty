@@ -10,6 +10,7 @@ import (
 	"github.com/gitslim/gophermart/internal/logging"
 	"github.com/gitslim/gophermart/internal/service"
 	"github.com/gitslim/gophermart/internal/web/dto"
+	"github.com/gitslim/gophermart/internal/web/middleware"
 )
 
 const (
@@ -22,15 +23,17 @@ type Handler struct {
 	orderService   service.OrderService
 	balanceService service.BalanceService
 	log            logging.Logger
+	auth           *middleware.AuthMiddleware
 }
 
 // NewHandler создает новый экземпляр Handler
-func NewHandler(log logging.Logger, userService service.UserService, orderService service.OrderService, balanceService service.BalanceService) *Handler {
+func NewHandler(log logging.Logger, userService service.UserService, orderService service.OrderService, balanceService service.BalanceService, auth *middleware.AuthMiddleware) *Handler {
 	return &Handler{
 		userService:    userService,
 		orderService:   orderService,
 		balanceService: balanceService,
 		log:            log,
+		auth:           auth,
 	}
 }
 
@@ -59,7 +62,7 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	_, err := h.userService.Register(c.Request.Context(), req.Login, req.Password)
+	user, err := h.userService.Register(c.Request.Context(), req.Login, req.Password)
 	if err != nil {
 		if err.Error() == "user already exists" {
 			c.JSON(http.StatusConflict, gin.H{"error": "login already taken"})
@@ -70,7 +73,14 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 
-	// TODO: Установить JWT токен в куки
+	token, err := h.auth.GenerateToken(user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	h.auth.SetAuthCookie(c, token)
+	c.Set(userIDKey, user.ID)
 
 	c.Status(http.StatusOK)
 }
@@ -83,13 +93,22 @@ func (h *Handler) Login(c *gin.Context) {
 		return
 	}
 
-	_, err := h.userService.Login(c.Request.Context(), req.Login, req.Password)
+	user, err := h.userService.Login(c.Request.Context(), req.Login, req.Password)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
 
-	// TODO: Установить JWT токен в куки
+	h.log.Debugf("User %d logged in", user.ID)
+
+	token, err := h.auth.GenerateToken(user.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		return
+	}
+
+	h.auth.SetAuthCookie(c, token)
+	c.Set(userIDKey, user.ID)
 
 	c.Status(http.StatusOK)
 }
