@@ -10,6 +10,7 @@ import (
 	"github.com/gitslim/gophermart/internal/service/user"
 	"github.com/gitslim/gophermart/internal/storage"
 	"github.com/gitslim/gophermart/internal/storage/postgres"
+	"github.com/gitslim/gophermart/internal/storage/postgres/migrations"
 	"github.com/gitslim/gophermart/internal/web"
 	"github.com/gitslim/gophermart/internal/web/handlers"
 	"github.com/gitslim/gophermart/internal/web/middleware"
@@ -49,9 +50,14 @@ func CreateApp() fx.Option {
 			router.NewRouter,
 		),
 
-		// Запуск сервера
+		// Запуск хранилища и миграций
 		fx.Invoke(
 			postgres.RegisterPoolHooks,
+			migrations.RunMigrations,
+		),
+
+		// Запуск сервера
+		fx.Invoke(
 			web.RegisterServerHooks,
 		),
 	)

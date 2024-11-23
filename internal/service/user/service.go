@@ -76,4 +76,3 @@ func (s *UserServiceImpl) Login(ctx context.Context, login, password string) (*m
 func (s *UserServiceImpl) GetUserByID(ctx context.Context, id int64) (*models.User, error) {
 	return s.storage.GetUserByID(ctx, id)
 }
-

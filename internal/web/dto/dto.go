@@ -2,8 +2,8 @@ package dto
 
 // UserRequest представляет запрос для регистрации/входа пользователя
 type UserRequest struct {
-	Login    string `json:"login"`
-	Password string `json:"password"`
+	Login    string `json:"login" binding:"required"`
+	Password string `json:"password" binding:"required"`
 }
 
 // BalanceResponse представляет ответ с информацией о балансе

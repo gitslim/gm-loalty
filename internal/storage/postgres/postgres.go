@@ -14,6 +14,10 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
+func init() {
+	loadQueries()
+}
+
 //go:embed sql/*.sql
 var sqlFS embed.FS
 
@@ -68,18 +72,14 @@ func NewPgStorage(pool *pgxpool.Pool) *PgStorage {
 
 // CreateUser создает нового пользователя
 func (s *PgStorage) CreateUser(ctx context.Context, user *models.User) error {
-	err := s.db.QueryRow(ctx, CreateUserQuery,
+	row := s.db.QueryRow(ctx, CreateUserQuery,
 		user.Login,
 		user.PasswordHash,
 		user.Balance,
 		user.CreatedAt,
-	).Scan(&user.ID)
+	)
 
-	if err != nil {
-		return fmt.Errorf("failed to create user: %w", err)
-	}
-
-	return nil
+	return row.Scan(&user.ID)
 }
 
 // GetUserByLogin возвращает пользователя по логину
@@ -228,7 +228,7 @@ func (s *PgStorage) UpdateOrderStatus(ctx context.Context, orderID int64, status
 // CreateWithdrawal создает новую операцию списания
 func (s *PgStorage) CreateWithdrawal(ctx context.Context, withdrawal *models.Withdrawal) error {
 
-	_,err := s.db.Exec(ctx, CreateWithdrawalQuery,
+	_, err := s.db.Exec(ctx, CreateWithdrawalQuery,
 		withdrawal.UserID,
 		withdrawal.Order,
 		withdrawal.Sum,

@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gitslim/gophermart/internal/logging"
 	"github.com/gitslim/gophermart/internal/service"
 	"github.com/gitslim/gophermart/internal/web/dto"
 )
@@ -20,14 +21,16 @@ type Handler struct {
 	userService    service.UserService
 	orderService   service.OrderService
 	balanceService service.BalanceService
+	log            logging.Logger
 }
 
 // NewHandler создает новый экземпляр Handler
-func NewHandler(userService service.UserService, orderService service.OrderService, balanceService service.BalanceService) *Handler {
+func NewHandler(log logging.Logger, userService service.UserService, orderService service.OrderService, balanceService service.BalanceService) *Handler {
 	return &Handler{
 		userService:    userService,
 		orderService:   orderService,
 		balanceService: balanceService,
+		log:            log,
 	}
 }
 
@@ -49,7 +52,9 @@ func getUserID(c *gin.Context) (int64, error) {
 // Register обрабатывает регистрацию пользователя
 func (h *Handler) Register(c *gin.Context) {
 	var req dto.UserRequest
+	h.log.Debugf("Register request: %+v", req)
 	if err := c.ShouldBindJSON(&req); err != nil {
+		h.log.Debugf("Failed to bind JSON: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
@@ -60,6 +65,7 @@ func (h *Handler) Register(c *gin.Context) {
 			c.JSON(http.StatusConflict, gin.H{"error": "login already taken"})
 			return
 		}
+		h.log.Debugf("Failed to register user: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
