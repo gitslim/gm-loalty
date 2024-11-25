@@ -13,14 +13,14 @@ import (
 
 // OrderServiceImpl реализует интерфейс service.OrderService
 type OrderServiceImpl struct {
-	storage      storage.Storage
+	storage       storage.Storage
 	accrualClient *accrual.Client
 }
 
 // NewOrderService создает новый экземпляр сервиса заказов
 func NewOrderService(storage storage.Storage, accrualClient *accrual.Client) service.OrderService {
 	return &OrderServiceImpl{
-		storage:      storage,
+		storage:       storage,
 		accrualClient: accrualClient,
 	}
 }
