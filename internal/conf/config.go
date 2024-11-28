@@ -9,10 +9,10 @@ import (
 )
 
 type Config struct {
-	RunAddrress           string `env:"RUN_ADDRESS"`
-	DatabaseURI           string `env:"DATABASE_URI"`
-	AccrualSystemAddrress string `env:"ACCRUAL_SYSTEM_ADDRESS"`
-	SecretKey             string `env:"SECRET_KEY"`
+	RunAddress           string `env:"RUN_ADDRESS"`
+	DatabaseURI          string `env:"DATABASE_URI"`
+	AccrualSystemAddress string `env:"ACCRUAL_SYSTEM_ADDRESS"`
+	SecretKey            string `env:"SECRET_KEY"`
 }
 
 const (
@@ -31,10 +31,10 @@ func ParseConfig() (*Config, error) {
 	flag.Parse()
 
 	cfg := &Config{
-		RunAddrress:           *runAddress,
-		DatabaseURI:           *databaseURI,
-		AccrualSystemAddrress: *accrualSystemAddress,
-		SecretKey:             *secretKey,
+		RunAddress:           *runAddress,
+		DatabaseURI:          *databaseURI,
+		AccrualSystemAddress: *accrualSystemAddress,
+		SecretKey:            *secretKey,
 	}
 
 	err := env.Parse(cfg)
@@ -43,11 +43,11 @@ func ParseConfig() (*Config, error) {
 	}
 
 	// проверка конфига
-	if cfg.RunAddrress == "" {
+	if cfg.RunAddress == "" {
 		return nil, errors.New("адрес сервера не может быть пустым")
 	}
 
-	if cfg.AccrualSystemAddrress == "" {
+	if cfg.AccrualSystemAddress == "" {
 		return nil, errors.New("адрес системы расчета начислений не может быть пустым")
 	}
 

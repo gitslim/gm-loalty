@@ -26,7 +26,7 @@ type Client struct {
 // NewClient создает новый экземпляр клиента системы начислений
 func NewClient(config *conf.Config) *Client {
 	return &Client{
-		baseURL: config.AccrualSystemAddrress,
+		baseURL: config.AccrualSystemAddress,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
