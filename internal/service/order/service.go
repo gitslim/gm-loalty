@@ -70,6 +70,8 @@ func (s *OrderServiceImpl) ProcessOrder(ctx context.Context, orderNumber string)
 	}
 
 	// Получаем информацию о начислении от системы расчета баллов
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	accrualResp, err := s.accrualClient.GetOrderAccrual(ctx, orderNumber)
 	if err != nil {
 		// В случае превышения лимита запросов, просто логируем ошибку и выходим
