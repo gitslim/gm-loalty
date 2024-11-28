@@ -1,4 +1,4 @@
-package order
+package workers
 
 import (
 	"context"
@@ -11,16 +11,16 @@ import (
 	"go.uber.org/fx"
 )
 
-// Worker представляет фоновый обработчик заказов
-type Worker struct {
+// OrderProcessingWorker представляет фоновый обработчик заказов
+type OrderProcessingWorker struct {
 	service service.OrderService
 	storage storage.Storage
 	log     logging.Logger
 }
 
-// NewWorker создает новый экземпляр фонового обработчика заказов
-func NewWorker(service service.OrderService, storage storage.Storage, logger logging.Logger) *Worker {
-	return &Worker{
+// NewOrderProcessingWorker создает новый экземпляр фонового обработчика заказов
+func NewOrderProcessingWorker(service service.OrderService, storage storage.Storage, logger logging.Logger) *OrderProcessingWorker {
+	return &OrderProcessingWorker{
 		service: service,
 		storage: storage,
 		log:     logger,
@@ -28,7 +28,7 @@ func NewWorker(service service.OrderService, storage storage.Storage, logger log
 }
 
 // Start запускает фоновую обработку заказов
-func (w *Worker) Start(ctx context.Context) error {
+func (w *OrderProcessingWorker) Start(ctx context.Context) error {
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 
@@ -45,7 +45,7 @@ func (w *Worker) Start(ctx context.Context) error {
 }
 
 // processOrders обрабатывает все необработанные заказы
-func (w *Worker) processOrders(ctx context.Context) error {
+func (w *OrderProcessingWorker) processOrders(ctx context.Context) error {
 	// Получаем все заказы в статусе NEW или PROCESSING
 	orders, err := w.storage.GetOrdersByStatuses(ctx, []string{
 		models.OrderStatusNew,
@@ -66,8 +66,8 @@ func (w *Worker) processOrders(ctx context.Context) error {
 	return nil
 }
 
-// RegisterWorkerHooks регистрирует хуки для запуска и остановки воркера
-func RegisterWorkerHooks(lc fx.Lifecycle, worker *Worker) {
+// RegisterOrderProcessingWorkerHooks регистрирует хуки для запуска и остановки воркера
+func RegisterOrderProcessingWorkerHooks(lc fx.Lifecycle, worker *OrderProcessingWorker) {
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
 			go worker.Start(ctx)

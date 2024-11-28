@@ -16,6 +16,7 @@ import (
 	"github.com/gitslim/gophermart/internal/web/handlers"
 	"github.com/gitslim/gophermart/internal/web/middleware"
 	"github.com/gitslim/gophermart/internal/web/router"
+	"github.com/gitslim/gophermart/internal/workers"
 	"go.uber.org/fx"
 )
 
@@ -45,7 +46,11 @@ func CreateApp() fx.Option {
 			fx.Annotate(user.NewUserService, fx.As(new(service.UserService))),
 			fx.Annotate(order.NewOrderService, fx.As(new(service.OrderService))),
 			fx.Annotate(balance.NewBalanceService, fx.As(new(service.BalanceService))),
-			order.NewWorker,
+		),
+
+		// Воркеры
+		fx.Provide(
+			workers.NewOrderProcessingWorker,
 		),
 
 		// Веб-компоненты
@@ -62,7 +67,7 @@ func CreateApp() fx.Option {
 		),
 
 		// Запуск воркера обработки заказов
-		fx.Invoke(order.RegisterWorkerHooks),
+		fx.Invoke(workers.RegisterOrderProcessingWorkerHooks),
 
 		// Запуск сервера
 		fx.Invoke(web.RegisterServerHooks),
