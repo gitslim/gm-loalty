@@ -31,12 +31,12 @@ func init() {
 	loadQueries(queries)
 }
 
-// PgStorage реализует интерфейс storage.Storage для PostgreSQL
+// PgOrderStorage представляет хранилище заказов в PostgreSQL
 type PgOrderStorage struct {
 	db *pgxpool.Pool
 }
 
-// NewPgStorage создает новый экземпляр хранилища PostgreSQL
+// NewPgOrderStorage создает новый экземпляр хранилища PostgreSQL
 func NewPgOrderStorage(pool *pgxpool.Pool) *PgOrderStorage {
 	return &PgOrderStorage{
 		db: pool,

@@ -23,12 +23,12 @@ func init() {
 	loadQueries(queries)
 }
 
-// PgStorage реализует интерфейс storage.Storage для PostgreSQL
+// PgWithdrawalStorage представляет хранилище операций списания
 type PgWithdrawalStorage struct {
 	db *pgxpool.Pool
 }
 
-// NewPgStorage создает новый экземпляр хранилища PostgreSQL
+// NewPgWithdrawalStorage создает новый экземпляр хранилища PostgreSQL
 func NewPgWithdrawalStorage(pool *pgxpool.Pool) *PgWithdrawalStorage {
 	return &PgWithdrawalStorage{
 		db: pool,

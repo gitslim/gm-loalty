@@ -28,12 +28,12 @@ func init() {
 	loadQueries(queries)
 }
 
-// PgStorage реализует интерфейс storage.Storage для PostgreSQL
+// PgUserStorage представляет хранилище пользователей PostgreSQL
 type PgUserStorage struct {
 	db *pgxpool.Pool
 }
 
-// NewPgStorage создает новый экземпляр хранилища PostgreSQL
+// NewPgUserStorage создает новый экземпляр хранилища PostgreSQL
 func NewPgUserStorage(pool *pgxpool.Pool) *PgUserStorage {
 	return &PgUserStorage{
 		db: pool,
