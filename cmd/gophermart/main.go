@@ -57,6 +57,7 @@ func CreateApp() fx.Option {
 
 		// Веб-компоненты
 		fx.Provide(
+			middleware.NewGzipMiddleware,
 			middleware.NewAuthMiddleware,
 			handlers.NewHandler,
 			router.NewRouter,
