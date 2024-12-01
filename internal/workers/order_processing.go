@@ -13,17 +13,17 @@ import (
 
 // OrderProcessingWorker представляет фоновый обработчик заказов
 type OrderProcessingWorker struct {
-	service service.OrderService
-	storage storage.Storage
+	orderService service.OrderService
+	orderStorage storage.OrderStorage
 	log     logging.Logger
 }
 
 // NewOrderProcessingWorker создает новый экземпляр фонового обработчика заказов
-func NewOrderProcessingWorker(service service.OrderService, storage storage.Storage, logger logging.Logger) *OrderProcessingWorker {
+func NewOrderProcessingWorker(orderService service.OrderService, sorderStorage storage.OrderStorage, log logging.Logger) *OrderProcessingWorker {
 	return &OrderProcessingWorker{
-		service: service,
-		storage: storage,
-		log:     logger,
+		orderService: orderService,
+		orderStorage: sorderStorage,
+		log:     log,
 	}
 }
 
@@ -47,7 +47,7 @@ func (w *OrderProcessingWorker) Start(ctx context.Context) error {
 // processOrders обрабатывает все необработанные заказы
 func (w *OrderProcessingWorker) processOrders(ctx context.Context) error {
 	// Получаем все заказы в статусе NEW или PROCESSING
-	orders, err := w.storage.GetOrdersByStatuses(ctx, []string{
+	orders, err := w.orderStorage.GetOrdersByStatuses(ctx, []string{
 		models.OrderStatusNew,
 		models.OrderStatusProcessing,
 	})
@@ -57,7 +57,7 @@ func (w *OrderProcessingWorker) processOrders(ctx context.Context) error {
 
 	// Обрабатываем каждый заказ
 	for _, order := range orders {
-		if err := w.service.ProcessOrder(ctx, order.Number); err != nil {
+		if err := w.orderService.ProcessOrder(ctx, order.Number); err != nil {
 			w.log.Errorf("Failed to process order %s: %v", order.Number, err)
 			continue
 		}

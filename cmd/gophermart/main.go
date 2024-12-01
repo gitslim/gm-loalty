@@ -35,7 +35,9 @@ func CreateApp() fx.Option {
 		// Хранилище
 		fx.Provide(
 			postgres.NewConnPool,
-			fx.Annotate(postgres.NewPgStorage, fx.As(new(storage.Storage))),
+			fx.Annotate(postgres.NewPgUserStorage, fx.As(new(storage.UserStorage))),
+			fx.Annotate(postgres.NewPgOrderStorage, fx.As(new(storage.OrderStorage))),
+			fx.Annotate(postgres.NewPgWithdrawalStorage, fx.As(new(storage.WithdrawalStorage))),
 		),
 
 		// Клиент системы начислений
