@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/gitslim/gophermart/internal/models"
-	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jmoiron/sqlx"
 )
 
 var (
@@ -30,76 +30,50 @@ func init() {
 
 // PgUserStorage представляет хранилище пользователей PostgreSQL
 type PgUserStorage struct {
-	db *pgxpool.Pool
+	db *sqlx.DB
 }
 
 // NewPgUserStorage создает новый экземпляр хранилища PostgreSQL
-func NewPgUserStorage(pool *pgxpool.Pool) *PgUserStorage {
+func NewPgUserStorage(db *sqlx.DB) *PgUserStorage {
 	return &PgUserStorage{
-		db: pool,
+		db: db,
 	}
 }
 
 // CreateUser создает нового пользователя
 func (s *PgUserStorage) CreateUser(ctx context.Context, user *models.User) error {
-	row := s.db.QueryRow(ctx, CreateUserQuery,
+	err := s.db.GetContext(ctx, &user.ID, CreateUserQuery,
 		user.Login,
 		user.PasswordHash,
 		user.Balance,
 		user.CreatedAt,
 	)
-
-	return row.Scan(&user.ID)
+	return err
 }
 
 // GetUserByLogin возвращает пользователя по логину
 func (s *PgUserStorage) GetUserByLogin(ctx context.Context, login string) (*models.User, error) {
-	user := &models.User{}
-
-	err := s.db.QueryRow(ctx, GetUserByLoginQuery, login).Scan(
-		&user.ID,
-		&user.Login,
-		&user.PasswordHash,
-		&user.Balance,
-		&user.CreatedAt,
-	)
-
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to get user by login: %w", err)
+	var user models.User
+	err := s.db.GetContext(ctx, &user, GetUserByLoginQuery, login)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
 	}
-
-	return user, nil
+	return &user, err
 }
 
 // GetUserByID возвращает пользователя по ID
 func (s *PgUserStorage) GetUserByID(ctx context.Context, id int64) (*models.User, error) {
-	user := &models.User{}
-
-	err := s.db.QueryRow(ctx, GetUserByIDQuery, id).Scan(
-		&user.ID,
-		&user.Login,
-		&user.PasswordHash,
-		&user.Balance,
-		&user.CreatedAt,
-	)
-
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to get user by id: %w", err)
+	var user models.User
+	err := s.db.GetContext(ctx, &user, GetUserByIDQuery, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
 	}
-
-	return user, nil
+	return &user, err
 }
 
 // UpdateBalance обновляет баланс пользователя
 func (s *PgUserStorage) UpdateBalance(ctx context.Context, userID int64, delta float64) error {
-
-	_, err := s.db.Exec(ctx, UpdateBalanceQuery, userID, delta)
+	_, err := s.db.ExecContext(ctx, UpdateBalanceQuery, userID, delta)
 	if err != nil {
 		return fmt.Errorf("failed to update balance: %w", err)
 	}
