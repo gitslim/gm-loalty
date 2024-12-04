@@ -6,6 +6,7 @@ import (
 
 	"github.com/gitslim/gophermart/internal/logging"
 	"github.com/gitslim/gophermart/internal/models"
+	"github.com/gitslim/gophermart/internal/retry"
 	"github.com/gitslim/gophermart/internal/service"
 	"github.com/gitslim/gophermart/internal/storage"
 	"go.uber.org/fx"
@@ -15,7 +16,7 @@ import (
 type OrderProcessingWorker struct {
 	orderService service.OrderService
 	orderStorage storage.OrderStorage
-	log     logging.Logger
+	log          logging.Logger
 }
 
 // NewOrderProcessingWorker создает новый экземпляр фонового обработчика заказов
@@ -23,7 +24,7 @@ func NewOrderProcessingWorker(orderService service.OrderService, sorderStorage s
 	return &OrderProcessingWorker{
 		orderService: orderService,
 		orderStorage: sorderStorage,
-		log:     log,
+		log:          log,
 	}
 }
 
@@ -57,7 +58,9 @@ func (w *OrderProcessingWorker) processOrders(ctx context.Context) error {
 
 	// Обрабатываем каждый заказ
 	for _, order := range orders {
-		if err := w.orderService.ProcessOrder(ctx, order.Number); err != nil {
+		if err := retry.Retry(func() error {
+			return w.orderService.ProcessOrder(ctx, order.Number)
+		}, 3); err != nil {
 			w.log.Errorf("Failed to process order %s: %v", order.Number, err)
 			continue
 		}

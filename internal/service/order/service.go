@@ -75,6 +75,7 @@ func (s *OrderServiceImpl) ProcessOrder(ctx context.Context, orderNumber string)
 	// Получаем информацию о начислении от системы расчета баллов
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+
 	accrualResp, statusCode, err := s.accrualClient.GetOrderAccrual(ctx, orderNumber)
 	if err != nil {
 		return errs.NewAppError(errs.ErrInternal, "failed to get accrual info")
