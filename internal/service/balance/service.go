@@ -2,9 +2,9 @@ package balance
 
 import (
 	"context"
-	"fmt"
 	"time"
 
+	"github.com/gitslim/gophermart/internal/errs"
 	"github.com/gitslim/gophermart/internal/models"
 	"github.com/gitslim/gophermart/internal/service"
 	"github.com/gitslim/gophermart/internal/storage"
@@ -28,10 +28,10 @@ func NewBalanceService(userStorage storage.UserStorage, withdrawalStorage storag
 func (s *BalanceServiceImpl) GetBalance(ctx context.Context, userID int64) (float64, error) {
 	user, err := s.userStorage.GetUserByID(ctx, userID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get user: %w", err)
+		return 0, errs.NewAppError(errs.ErrInternal, "failed to get user")
 	}
 	if user == nil {
-		return 0, fmt.Errorf("user not found")
+		return 0, errs.NewAppError(errs.ErrNotFound, "user not found")
 	}
 
 	return user.Balance, nil
@@ -41,15 +41,12 @@ func (s *BalanceServiceImpl) GetBalance(ctx context.Context, userID int64) (floa
 func (s *BalanceServiceImpl) Withdraw(ctx context.Context, userID int64, orderNumber string, amount float64) error {
 	// Проверяем баланс пользователя
 	user, err := s.userStorage.GetUserByID(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("failed to get user: %w", err)
-	}
-	if user == nil {
-		return fmt.Errorf("user not found")
+	if err != nil || user == nil {
+		return errs.NewAppError(errs.ErrUnauthorized, "user not found")
 	}
 
 	if user.Balance < amount {
-		return fmt.Errorf("insufficient funds")
+		return errs.NewAppError(errs.ErrPaymentRequired, "insufficient funds")
 	}
 
 	// Создаем запись о списании
@@ -61,12 +58,12 @@ func (s *BalanceServiceImpl) Withdraw(ctx context.Context, userID int64, orderNu
 	}
 
 	if err := s.withdrawalStorage.CreateWithdrawal(ctx, withdrawal); err != nil {
-		return fmt.Errorf("failed to create withdrawal: %w", err)
+		return errs.NewAppError(errs.ErrInternal, "failed to create withdrawal")
 	}
 
 	// Обновляем баланс пользователя
 	if err := s.userStorage.UpdateBalance(ctx, userID, -amount); err != nil {
-		return fmt.Errorf("failed to update balance: %w", err)
+		return errs.NewAppError(errs.ErrInternal, "failed to update balance")
 	}
 
 	return nil

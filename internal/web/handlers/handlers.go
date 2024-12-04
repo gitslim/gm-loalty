@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gitslim/gophermart/internal/errs"
 	"github.com/gitslim/gophermart/internal/logging"
 	"github.com/gitslim/gophermart/internal/service"
 	"github.com/gitslim/gophermart/internal/web/dto"
@@ -37,45 +38,94 @@ func NewHandler(log logging.Logger, userService service.UserService, orderServic
 	}
 }
 
+// handleError обрабатывает ошибки
+func handleError(c *gin.Context, err error) {
+	var e *errs.AppError
+	if errors.As(err, &e) {
+		c.JSON(e.Type.HTTPStatus, gin.H{"error": e.Error()})
+		return
+	}
+	c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+}
+
+func bindDTO(c *gin.Context, dto interface{}) error {
+	if err := c.ShouldBindJSON(&dto); err != nil {
+		return errs.NewAppError(errs.ErrBadRequest, "invalid request")
+	}
+	return nil
+}
+
 // getUserID возвращает ID пользователя из контекста
 func getUserID(c *gin.Context) (int64, error) {
+	err := errs.NewAppError(errs.ErrUnauthorized, "user not found")
+
 	userIDRaw, exists := c.Get(userIDKey)
 	if !exists {
-		return 0, errors.New("user ID not found in context")
+		return 0, err
 	}
 
 	userID, ok := userIDRaw.(int64)
 	if !ok {
-		return 0, errors.New("invalid user ID type in context")
+		return 0, err
 	}
 
 	return userID, nil
 }
 
+// validateOrderLuhn проверяет номер заказа по алгоритму Луна
+func validateOrderLuhn(number string) error {
+	err := errs.NewAppError(errs.ErrUnprocessableEntity, "invalid order number")
+	digits := make([]int, 0, len(number))
+	for _, r := range number {
+		if d, err := strconv.Atoi(string(r)); err == nil {
+			digits = append(digits, d)
+		} else {
+			return err
+		}
+	}
+
+	if len(digits) == 0 {
+		return err
+	}
+
+	checksum := 0
+	for i := len(digits) - 2; i >= 0; i -= 2 {
+		d := digits[i] * 2
+		if d > 9 {
+			d -= 9
+		}
+		digits[i] = d
+	}
+
+	for _, d := range digits {
+		checksum += d
+	}
+
+	if checksum%10 != 0 {
+		return err
+	}
+
+	return nil
+}
+
 // Register обрабатывает регистрацию пользователя
 func (h *Handler) Register(c *gin.Context) {
 	var req dto.UserRequest
-	h.log.Debugf("Register request: %+v", req)
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.log.Debugf("Failed to bind JSON: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+	err := bindDTO(c, &req)
+	if err != nil {
+		handleError(c, err)
 		return
 	}
 
 	user, err := h.userService.Register(c.Request.Context(), req.Login, req.Password)
 	if err != nil {
-		if err.Error() == "user already exists" {
-			c.JSON(http.StatusConflict, gin.H{"error": "login already taken"})
-			return
-		}
-		h.log.Debugf("Failed to register user: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		handleError(c, err)
 		return
 	}
 
 	token, err := h.auth.GenerateToken(user.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		handleError(c, err)
 		return
 	}
 
@@ -88,22 +138,21 @@ func (h *Handler) Register(c *gin.Context) {
 // Login обрабатывает аутентификацию пользователя
 func (h *Handler) Login(c *gin.Context) {
 	var req dto.UserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+	err := bindDTO(c, &req)
+	if err != nil {
+		handleError(c, err)
 		return
 	}
 
 	user, err := h.userService.Login(c.Request.Context(), req.Login, req.Password)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+		handleError(c, err)
 		return
 	}
 
-	h.log.Debugf("User %d logged in", user.ID)
-
 	token, err := h.auth.GenerateToken(user.ID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		handleError(c, err)
 		return
 	}
 
@@ -117,32 +166,25 @@ func (h *Handler) Login(c *gin.Context) {
 func (h *Handler) UploadOrder(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		handleError(c, err)
 		return
 	}
 
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		handleError(c, err)
 		return
 	}
 
 	orderNumber := string(body)
-	if !isValidLuhn(orderNumber) {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid order number"})
+	if err := validateOrderLuhn(orderNumber); err != nil {
+		handleError(c, err)
 		return
 	}
 
 	err = h.orderService.UploadOrder(c.Request.Context(), userID, orderNumber)
 	if err != nil {
-		switch err.Error() {
-		case "order already uploaded by this user":
-			c.Status(http.StatusOK)
-		case "order already uploaded by another user":
-			c.JSON(http.StatusConflict, gin.H{"error": "order registered by another user"})
-		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
-		}
+		handleError(c, err)
 		return
 	}
 
@@ -153,13 +195,13 @@ func (h *Handler) UploadOrder(c *gin.Context) {
 func (h *Handler) GetOrders(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		handleError(c, err)
 		return
 	}
 
 	orders, err := h.orderService.GetUserOrders(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		handleError(c, err)
 		return
 	}
 
@@ -175,19 +217,19 @@ func (h *Handler) GetOrders(c *gin.Context) {
 func (h *Handler) GetBalance(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		handleError(c, err)
 		return
 	}
 
 	balance, err := h.balanceService.GetBalance(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		handleError(c, err)
 		return
 	}
 
 	withdrawals, err := h.balanceService.GetWithdrawals(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		handleError(c, err)
 		return
 	}
 
@@ -208,28 +250,25 @@ func (h *Handler) GetBalance(c *gin.Context) {
 func (h *Handler) Withdraw(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		handleError(c, err)
 		return
 	}
 
 	var req dto.WithdrawRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+	err = bindDTO(c, &req)
+	if err != nil {
+		handleError(c, err)
 		return
 	}
 
-	if !isValidLuhn(req.Order) {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid order number"})
+	if err := validateOrderLuhn(req.Order); err != nil {
+		handleError(c, err)
 		return
 	}
 
 	err = h.balanceService.Withdraw(c.Request.Context(), userID, req.Order, req.Sum)
 	if err != nil {
-		if err.Error() == "insufficient funds" {
-			c.JSON(http.StatusPaymentRequired, gin.H{"error": "insufficient funds"})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		handleError(c, err)
 		return
 	}
 
@@ -240,13 +279,13 @@ func (h *Handler) Withdraw(c *gin.Context) {
 func (h *Handler) GetWithdrawals(c *gin.Context) {
 	userID, err := getUserID(c)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		handleError(c, err)
 		return
 	}
 
 	withdrawals, err := h.balanceService.GetWithdrawals(c.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		handleError(c, err)
 		return
 	}
 
@@ -256,35 +295,4 @@ func (h *Handler) GetWithdrawals(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, withdrawals)
-}
-
-// isValidLuhn проверяет номер заказа по алгоритму Луна
-func isValidLuhn(number string) bool {
-	digits := make([]int, 0, len(number))
-	for _, r := range number {
-		if d, err := strconv.Atoi(string(r)); err == nil {
-			digits = append(digits, d)
-		} else {
-			return false
-		}
-	}
-
-	if len(digits) == 0 {
-		return false
-	}
-
-	checksum := 0
-	for i := len(digits) - 2; i >= 0; i -= 2 {
-		d := digits[i] * 2
-		if d > 9 {
-			d -= 9
-		}
-		digits[i] = d
-	}
-
-	for _, d := range digits {
-		checksum += d
-	}
-
-	return checksum%10 == 0
 }

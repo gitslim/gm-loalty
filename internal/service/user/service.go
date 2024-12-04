@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gitslim/gophermart/internal/errs"
 	"github.com/gitslim/gophermart/internal/models"
 	"github.com/gitslim/gophermart/internal/service"
 	"github.com/gitslim/gophermart/internal/storage"
@@ -28,10 +29,10 @@ func (s *UserServiceImpl) Register(ctx context.Context, login, password string) 
 	// Проверяем, существует ли пользователь
 	existingUser, err := s.userStorage.GetUserByLogin(ctx, login)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check existing user: %w", err)
+		return nil, errs.NewAppError(errs.ErrInternal, "failed to get user")
 	}
 	if existingUser != nil {
-		return nil, fmt.Errorf("user already exists")
+		return nil, errs.NewAppError(errs.ErrConflict, "user already exists")
 	}
 
 	// Хешируем пароль
@@ -59,14 +60,14 @@ func (s *UserServiceImpl) Register(ctx context.Context, login, password string) 
 func (s *UserServiceImpl) Login(ctx context.Context, login, password string) (*models.User, error) {
 	user, err := s.userStorage.GetUserByLogin(ctx, login)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
+		return nil, errs.NewAppError(errs.ErrInternal, "failed to get user")
 	}
 	if user == nil {
-		return nil, fmt.Errorf("user not found")
+		return nil, errs.NewAppError(errs.ErrNotFound, "user not found")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		return nil, fmt.Errorf("invalid password")
+		return nil, errs.NewAppError(errs.ErrUnauthorized, "invalid password")
 	}
 
 	return user, nil
