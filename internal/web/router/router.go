@@ -9,9 +9,9 @@ import (
 )
 
 // NewRouter настраивает маршрутизацию
-func NewRouter(handler *handlers.Handler, auth *middleware.AuthMiddleware) *gin.Engine {
+func NewRouter(handler *handlers.Handler, gzip *middleware.GzipMiddleware, auth *middleware.AuthMiddleware) *gin.Engine {
 	r := gin.Default()
-	r.Use(middleware.GzipMiddleware())
+	r.Use(gzip.HandlerFunc)
 
 	// Пинг для проверки здоровья
 	r.GET("/ping", func(c *gin.Context) {

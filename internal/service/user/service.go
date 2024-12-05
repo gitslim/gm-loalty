@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gitslim/gophermart/internal/errs"
 	"github.com/gitslim/gophermart/internal/models"
 	"github.com/gitslim/gophermart/internal/service"
 	"github.com/gitslim/gophermart/internal/storage"
@@ -13,25 +14,25 @@ import (
 
 // UserServiceImpl реализует интерфейс service.UserService
 type UserServiceImpl struct {
-	storage storage.Storage
+	userStorage storage.UserStorage
 }
 
 // NewUserService создает новый экземпляр сервиса пользователей
-func NewUserService(storage storage.Storage) service.UserService {
+func NewUserService(userStorage storage.UserStorage) service.UserService {
 	return &UserServiceImpl{
-		storage: storage,
+		userStorage: userStorage,
 	}
 }
 
 // Register регистрирует нового пользователя
 func (s *UserServiceImpl) Register(ctx context.Context, login, password string) (*models.User, error) {
 	// Проверяем, существует ли пользователь
-	existingUser, err := s.storage.GetUserByLogin(ctx, login)
+	existingUser, err := s.userStorage.GetUserByLogin(ctx, login)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check existing user: %w", err)
+		return nil, errs.NewAppError(errs.ErrInternal, "failed to get user")
 	}
 	if existingUser != nil {
-		return nil, fmt.Errorf("user already exists")
+		return nil, errs.NewAppError(errs.ErrConflict, "user already exists")
 	}
 
 	// Хешируем пароль
@@ -48,7 +49,7 @@ func (s *UserServiceImpl) Register(ctx context.Context, login, password string) 
 		CreatedAt:    time.Now(),
 	}
 
-	if err := s.storage.CreateUser(ctx, user); err != nil {
+	if err := s.userStorage.CreateUser(ctx, user); err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
@@ -57,16 +58,16 @@ func (s *UserServiceImpl) Register(ctx context.Context, login, password string) 
 
 // Login аутентифицирует пользователя
 func (s *UserServiceImpl) Login(ctx context.Context, login, password string) (*models.User, error) {
-	user, err := s.storage.GetUserByLogin(ctx, login)
+	user, err := s.userStorage.GetUserByLogin(ctx, login)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
+		return nil, errs.NewAppError(errs.ErrInternal, "failed to get user")
 	}
 	if user == nil {
-		return nil, fmt.Errorf("user not found")
+		return nil, errs.NewAppError(errs.ErrNotFound, "user not found")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		return nil, fmt.Errorf("invalid password")
+		return nil, errs.NewAppError(errs.ErrUnauthorized, "invalid password")
 	}
 
 	return user, nil
@@ -74,5 +75,5 @@ func (s *UserServiceImpl) Login(ctx context.Context, login, password string) (*m
 
 // GetUserByID возвращает пользователя по ID
 func (s *UserServiceImpl) GetUserByID(ctx context.Context, id int64) (*models.User, error) {
-	return s.storage.GetUserByID(ctx, id)
+	return s.userStorage.GetUserByID(ctx, id)
 }

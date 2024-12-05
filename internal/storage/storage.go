@@ -28,10 +28,3 @@ type WithdrawalStorage interface {
 	CreateWithdrawal(ctx context.Context, withdrawal *models.Withdrawal) error
 	GetUserWithdrawals(ctx context.Context, userID int64) ([]*models.Withdrawal, error)
 }
-
-// Storage объединяет все интерфейсы хранилища
-type Storage interface {
-	UserStorage
-	OrderStorage
-	WithdrawalStorage
-}

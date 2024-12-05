@@ -16,6 +16,7 @@ import (
 	"github.com/gitslim/gophermart/internal/web/handlers"
 	"github.com/gitslim/gophermart/internal/web/middleware"
 	"github.com/gitslim/gophermart/internal/web/router"
+	"github.com/gitslim/gophermart/internal/workers"
 	"go.uber.org/fx"
 )
 
@@ -34,7 +35,9 @@ func CreateApp() fx.Option {
 		// Хранилище
 		fx.Provide(
 			postgres.NewConnPool,
-			fx.Annotate(postgres.NewPgStorage, fx.As(new(storage.Storage))),
+			fx.Annotate(postgres.NewPgUserStorage, fx.As(new(storage.UserStorage))),
+			fx.Annotate(postgres.NewPgOrderStorage, fx.As(new(storage.OrderStorage))),
+			fx.Annotate(postgres.NewPgWithdrawalStorage, fx.As(new(storage.WithdrawalStorage))),
 		),
 
 		// Клиент системы начислений
@@ -45,11 +48,16 @@ func CreateApp() fx.Option {
 			fx.Annotate(user.NewUserService, fx.As(new(service.UserService))),
 			fx.Annotate(order.NewOrderService, fx.As(new(service.OrderService))),
 			fx.Annotate(balance.NewBalanceService, fx.As(new(service.BalanceService))),
-			order.NewWorker,
+		),
+
+		// Воркеры
+		fx.Provide(
+			workers.NewOrderProcessingWorker,
 		),
 
 		// Веб-компоненты
 		fx.Provide(
+			middleware.NewGzipMiddleware,
 			middleware.NewAuthMiddleware,
 			handlers.NewHandler,
 			router.NewRouter,
@@ -62,7 +70,7 @@ func CreateApp() fx.Option {
 		),
 
 		// Запуск воркера обработки заказов
-		fx.Invoke(order.RegisterWorkerHooks),
+		fx.Invoke(workers.RegisterOrderProcessingWorkerHooks),
 
 		// Запуск сервера
 		fx.Invoke(web.RegisterServerHooks),
